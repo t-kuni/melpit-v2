@@ -1,0 +1,78 @@
+version: '3'
+services:
+  db:
+    container_name: melpit-v2-db
+    build: db
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "33060:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+    restart: always
+
+  app:
+    container_name: melpit-v2-app
+    build:
+      context: app
+      args:
+        - APP_UID=${APP_UID}
+        - APP_GID=${APP_GID}
+    restart: always
+    volumes:
+      - ${APP_CODE_DIR}:/var/www/app
+
+  workspace:
+    container_name: melpit-v2-app-workspace
+    build:
+      context: workspace
+      args:
+        - APP_UID=${APP_UID}
+        - APP_GID=${APP_GID}
+    command: node -v
+    volumes:
+      - ${APP_CODE_DIR}:/var/www/app
+
+  web:
+    container_name: melpit-v2-web
+    build:
+      context: web
+      args:
+        - APP_UID=${APP_UID}
+        - APP_GID=${APP_GID}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${APP_CODE_DIR}:/var/www/app
+    depends_on:
+      - app
+    networks:
+      default:
+        aliases:
+          - local.melpit-v2.com
+    restart: always
+
+  mta:
+    container_name: melpit-v2-mta
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    restart: always
+
+  db-viewer:
+    container_name: melpit-v2-db-viewer
+    image: phpmyadmin/phpmyadmin:5.1.0
+    ports:
+      - 8080:80
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=${DB_PASSWORD}
+    restart: always
+
+volumes:
+  db-data:
